@@ -1,14 +1,20 @@
 // =====================================================================
 // ECLIPSE: LOADING PUZZLES FROM GOOGLE SHEETS
 // Reads three tabs from the sheet in config.js:
-//   Schedule  (Day, Easy, Medium, Hard)       which Venn IDs to play each day
+//   Schedule  (Day, Venn 1, Venn 2, Venn 3)   which Venn IDs to play each day
 //   Venns     (Venn ID, Circle A, Circle B)    what each Venn is
 //   Answers   (Venn ID, Answer, Tier, Also accept)
 // If anything goes wrong, the game falls back to the backup puzzles in venns.js.
 // =====================================================================
 
 const SHEET_TABS = { schedule: "Schedule", venns: "Venns", answers: "Answers" };
-const SLOTS = ["Easy", "Medium", "Hard"];
+// Schedule columns the game reads: "Venn 1", "Venn 2", "Venn 3" ... (older sheets used Easy, Medium, Hard)
+function slotColumns(rows) {
+  const cols = rows.length ? Object.keys(rows[0]) : [];
+  const numbered = cols.filter(c => /^venn \d+$/i.test(c))
+    .sort((a, b) => parseInt(a.replace(/\D/g, ""), 10) - parseInt(b.replace(/\D/g, ""), 10));
+  return numbered.length ? numbered : ["Easy", "Medium", "Hard"].filter(c => cols.includes(c));
+}
 const TIER_CODES = { common: "C", good: "H", rare: "T", c: "C", h: "H", t: "T" };
 
 function parseCSV(text) {
@@ -57,14 +63,16 @@ async function fetchTab(name, mustHave) {
 // Returns today's Venns in the game's format: [{ a, b, answers: [[name, "C"|"H"|"T", "alt;alt"]] }]
 async function loadDayFromSheet(dayIndex) {
   const [schedule, venns, answers] = await Promise.all([
-    fetchTab(SHEET_TABS.schedule, SLOTS),
+    fetchTab(SHEET_TABS.schedule, []),
     fetchTab(SHEET_TABS.venns, ["Venn ID", "Circle A", "Circle B"]),
     fetchTab(SHEET_TABS.answers, ["Venn ID", "Answer", "Tier"]),
   ]);
-  const days = schedule.filter(r => SLOTS.some(s => r[s]));
+  const slots = slotColumns(schedule);
+  if (!slots.length) throw new Error("The Schedule tab needs columns called Venn 1, Venn 2, Venn 3.");
+  const days = schedule.filter(r => slots.some(s => r[s]));
   if (!days.length) throw new Error("The Schedule tab has no days in it.");
   const row = days[((dayIndex % days.length) + days.length) % days.length];
-  const ids = SLOTS.map(s => row[s]).filter(Boolean);
+  const ids = slots.map(s => row[s]).filter(Boolean);
 
   const info = new Map(venns.map(v => [v["Venn ID"], v]));
   return ids.map(id => {
