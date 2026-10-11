@@ -211,13 +211,10 @@ $("nextBtn").addEventListener("click", () => { if (day.done) showFinal(); else s
 
 // ---------- End of the day ----------
 function shareText(stats) {
-  let best = null;
-  day.results.forEach(r => { if (r.best && (!best || RANK[r.best[1]] > RANK[best[1]])) best = r.best; });
   const tot = day.results.filter(r => r.p >= 100).length;
   const link = /^https?:/.test(location.protocol) ? "\n" + location.origin + location.pathname : "";
   return `Eclipse #${PUZZLE_NO} ${day.results.map(r => phase(r.p)).join("")}\n` +
-    `Full eclipses ${tot}/${day.results.length}` + (stats && !PREVIEW ? ` · Streak ${stats.streak}` : "") +
-    (best ? `\nBest answer: ${best[0]} ${ICON[best[1]]}` : "") + link;
+    `Full eclipses ${tot}/${day.results.length}` + (stats && !PREVIEW ? ` · Streak ${stats.streak}` : "") + link;
 }
 function showFinal() {
   const stats = computeStats(state, todayKey());
